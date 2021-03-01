@@ -1,0 +1,116 @@
+---
+title: "Creating_Biomass_Rasters"
+author: "Lavran Pagano"
+date: "1/17/2021"
+output: html_document
+---
+#Part 1: Creating a raster with 10X10 meter spatial resolution based off of lidar derived covariets
+Import the raster and car package
+```{r}
+library(raster)
+library(car)
+```
+
+###Import canopy height raster and remove NAs
+```{r}
+rastblast <-raster("/Users/lavran_pagano/Downloads/Nan_as_0_masked_ham_chms/fixedmasked320320split1.tif")
+rastblast[is.na(rastblast)]<- 0
+```
+###Plot the canopy height model
+```{r}
+plot(rastblast)
+```
+
+
+### Agregate a new raster with 10X10 meter resolution (133X133 pixels based off of the cell resolution) based off of 90th height percentiles
+```{r}
+radrast<-aggregate(rastblast, fact=133, fun=function(i, na.rm) quantile(i, probs=0.90, na.rm=na.rm))
+```
+
+###Plot the raster
+```{r}
+plot(radrast)
+```
+
+
+### Import training data
+```{r}
+Mastersheet<- read.csv('/Users/lavran_pagano/Desktop/Training_Data/Plot_Biomass_soft maplesTD.csv')
+```
+
+###Create model (in our case we are using a linear fixed effects model)
+```{r}
+latestmodel<-lm(sqrt(Biomass)~ sqrt(Height_90th) -1
+                ,data=Mastersheet)
+```
+###Make sure all necesary assumptions of the model are met
+```{r}
+shapiro.test(residuals(latestmodel))
+ncvTest(latestmodel)
+```
+###Summary staistics of the model we just made
+```{r}
+summary(latestmodel)
+```
+###Convert to a dataframe
+```{r}
+rastdataframe<-as.data.frame(radrast)
+```
+###Change name to indpendent variable name
+```{r}
+colnames(rastdataframe)[1]<-"Height_90th"
+```
+###Do necesary data transformations
+```{r}
+sqrtrastdataframe<-sqrt(rastdataframe)
+```
+###Predict biomass
+```{r}
+sqrtbiodata<-predict(latestmodel,rastdataframe)
+```
+###Do necesary data transformations part 2
+```{r}
+biodata<-sqrtbiodata^2
+```
+## Inspect the results
+###Average Plot Biomass
+```{r}
+mean(biodata)
+```
+###Total Biomass of The Canopy Height Model
+```{r}
+sum(biodata)
+```
+# Part 2: Creating a Biomass Raster
+
+###Get the cordinates of previous raster
+```{r}
+cord<-coordinates(radrast)
+```
+###Attach biomass values to a dataframe
+```{r}
+bioraster<-as.data.frame(cord)
+bioraster$Biomass <-biodata
+```
+###Turn the dataframe into a raster
+```{r}
+bioraster<-rasterFromXYZ(bioraster) #Convert first two columns as lon-lat and third as biomass
+```
+###Plot the results
+```{r}
+plot(bioraster)
+```
+
+
+###Change the projection to the previous raster's
+```{r}
+rastcrs<-crs(rastblast)
+crs(bioraster)<-rastcrs
+```
+###Write biomass raster to working directory
+```{r}
+setwd("/Users/lavran_pagano/Downloads/HamltonbiomassCHMs")
+writeRaster(bioraster,"biomass320320split1.tif",overwrite=TRUE)
+```
+
+```

@@ -1,0 +1,100 @@
+---
+title: "Creating_Plot_Polygons"
+author: "Lavran Pagano"
+date: "1/30/2021"
+output: html_document
+---
+Import Packages
+```{r}
+library(raster)
+library(rgdal)
+```
+
+Import shapefile of plot south west corner
+```{r}
+SWC<-shapefile('/Users/lavran_pagano/Downloads/Creekshead_Plots (1)/Creekshead_Plots.shp')
+```
+
+
+
+Get Lat-Long Cordinates from Plots
+```{r}
+long_lat<-data.frame(Long = SWC$ESRIGNSS_1 ,Lat = SWC$ESRIGNSS_L )#get lat and long cordinates
+long_lat<-na.omit(long_lat) # remove NAs
+```
+
+Create a function to covert to UTM projection
+```{r}
+# convert to UTM FUnction
+LongLatToUTM<-function(x,y,zone){
+  xy <- data.frame(ID = 1:length(x), X = x, Y = y)
+  coordinates(xy) <- c("X", "Y")
+  proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")  ## for example
+  res <- spTransform(xy, CRS(paste("+proj=utm +zone=",zone," ellps=WGS84",sep='')))
+  return(as.data.frame(res))
+}
+```
+
+Apply UTM Function
+```{r}
+utm<-LongLatToUTM(long_lat$Long,long_lat$Lat,17)
+```
+Create a dataframe file with plot the UTM plot center cordinates
+```{r}
+utmEasting<-utm$X +5
+utmNorthing<-utm$Y +5
+utm_center <-data.frame(ID=utm$ID, Easting=utmEasting, Northing = utmNorthing)
+```
+
+Renane if not already in the appropriate format
+```{r}
+centroids <- utm_center
+colnames(centroids)[1]<- "plot"
+colnames(centroids)[2]<-"Easting"
+colnames(centroids)[3]<-"Northing"
+```
+Get cordinates of plot corners
+
+```{r}
+radius <- 5
+yPlus <- centroids$Northing+radius
+xPlus <- centroids$Easting+radius
+yMinus <- centroids$Northing-radius
+xMinus <- centroids$Easting-radius
+```
+
+Calculate polygon coordinates for each plot centroid
+```{r}
+square=cbind(xMinus,yPlus,  # NW corner
+             xPlus, yPlus,  # NE corner
+             xPlus,yMinus,  # SE corner
+             xMinus,yMinus, # SW corner
+             xMinus,yPlus)  # NW corner again - close ploygon
+```
+
+Extract the plot ID information
+```{r}
+# Extract the plot ID information
+ID=centroids$plot
+```
+
+Create spatial polygon dataframe 
+```{r}
+polys <- SpatialPolygons(mapply(function(poly, id) 
+{
+  xy <- matrix(poly, ncol=2, byrow=TRUE)
+  Polygons(list(Polygon(xy)), ID=id)
+}, 
+split(square, row(square)), ID),
+proj4string=CRS(as.character('+proj=utm +zone=17 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs')))
+```
+
+Create spatial polygon DataFrame and export as a shapefile
+```{r}
+## create spatial polygon DataFrame and export as a shapefile
+polys.df <-SpatialPolygonsDataFrame(polys, data.frame(id=ID, row.names=ID))
+
+# write to a polygon shapefile
+writeOGR(polys.df, '.', 'CreeksheadPlotPolygon2', 'ESRI Shapefile',overwrite=TRUE)
+```
+
