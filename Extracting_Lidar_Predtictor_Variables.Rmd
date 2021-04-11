@@ -1,0 +1,178 @@
+---
+title: "Extracting_Lidar_Predictor_Variables"
+author: "Lavran Pagano"
+date: "1/30/2021"
+output: html_document
+---
+Import Packages
+
+```{r}
+library(lidR)
+library(raster)
+library(purrr)
+```
+
+Import Polygon Plot Shapefile
+
+```{r}
+centShape <-shapefile("/Users/lavran_pagano/Downloads/CreeksheadPlotPolygon2.shp")
+```
+
+Import list of canopy height models and mosaic them into one large raster covering the study area
+
+```{r}
+#path to chm folder
+mypath<- '/Users/lavran_pagano/Downloads/Lidar_Training_Data/Creeks_Head/Creeks_HeadCHMs'
+#make a list of chm files
+chmlist<-list.files(mypath,full.names = T, pattern = '.tif$') %>%  
+map(raster)
+#mosaic raster
+mosaic<- do.call(merge,chmlist)
+```
+
+Make sure both the raster and the shapefile are in the same projection. In our case we will be working in Michiagn State Plane
+
+```{r}
+#define projection (state plane)
+statePlane<-"+proj=lcc +lat_0=41.5 +lon_0=-84.3666666666667 +lat_1=43.6666666666667
++lat_2=42.1 +x_0=3999999.999984 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=ft +no_defs"
+#change chm projection
+crs(mosaic) <- statePlane
+#change shapefile projection
+centShape<-spTransform(centShape,statePlane)
+```
+
+Create list of pixel values
+
+```{r}
+#create list of pixel values
+pixelvalues<-raster::extract(mosaic,centShape,method= 'simple')
+#Omit NAs for simplicity
+pixelvalues <-lapply(pixelvalues,na.omit)
+```
+
+###Create a dataframe of predictor varibles
+
+Height covariets
+```{r}
+#max hight
+Height_Max<-lapply(pixelvalues,max)
+Height_Max<-unlist(Height_Max)
+#min height
+Height_Min<-lapply(pixelvalues,min)
+Height_Min<-unlist(Height_Min)
+#height 10th
+percent10<-function(x){
+  quantile(x, probs = c(0.1))
+}
+Height_10th<-lapply(pixelvalues,percent10)
+Height_10th<-unlist(Height_10th)
+#height 20th
+percent20<-function(x){
+  quantile(x, probs = c(0.2))
+}
+Height_20th<-lapply(pixelvalues,percent20)
+Height_20th<-unlist(Height_20th)
+#height 30th
+percent30<-function(x){
+  quantile(x, probs = c(0.3))
+}
+Height_30th<-lapply(pixelvalues,percent30)
+Height_30th<-unlist(Height_30th)
+#height 40th
+percent40<-function(x){
+  quantile(x, probs = c(0.4))
+}
+Height_40th<-lapply(pixelvalues,percent40)
+Height_40th<-unlist(Height_40th)
+#height 50th
+percent50<-function(x){
+  quantile(x, probs = c(0.5))
+}
+Height_50th<-lapply(pixelvalues,percent50)
+Height_50th<-unlist(Height_50th)
+#height 60th
+percent60<-function(x){
+  quantile(x, probs = c(0.6))
+}
+Height_60th<-lapply(pixelvalues,percent60)
+Height_60th<-unlist(Height_60th)
+#height 70th
+percent70<-function(x){
+  quantile(x, probs = c(0.7))
+}
+Height_70th<-lapply(pixelvalues,percent70)
+Height_70th<-unlist(Height_70th)
+#height 80th
+percent80<-function(x){
+  quantile(x, probs = c(0.8))
+}
+Height_80th<-lapply(pixelvalues,percent80)
+Height_80th<-unlist(Height_80th)
+#height 90th
+percent90<-function(x){
+  quantile(x, probs = c(0.9))
+}
+Height_90th<-lapply(pixelvalues,percent90)
+Height_90th<-unlist(Height_90th)
+```
+
+Crown gemoetric voulmne(cgv)
+cgv is calculated from the sumation of all pixel values in a plot with the minium height value subtracted from said pixel values. That number is then multiplyed by the width and length of a given pixel cell to convert to cubic meters.Our spatial resolution is 0.25ft which is equalivlent to 0.075m, Therfore given our spatail resolution cgv is calculated by sum(y-min(y)) 0.075m X 0.075m.
+
+```{r}
+#CGV FUll
+CGV100<-function(y){
+  sum(y-min(y))* 0.005625 #0.075m X 0.075m
+}
+cgv100th<-lapply(pixelvalues,CGV100)
+cgv100th<-unlist(cgv100th)
+#CGV50th
+CGV50<-function(x, y){
+  y<-ifelse(x< percent50(x),x,percent50(x))
+  sum(y-min(x))* 0.005625
+}
+cgv50th<-lapply(pixelvalues,CGV50)
+cgv50th<-unlist(cgv50th)
+#CGV60th
+CGV60<-function(x, y){
+  y<-ifelse(x< percent60(x),x,percent60(x))
+  sum(y-min(x))* 0.005625
+}
+cgv60th<-lapply(pixelvalues,CGV60)
+cgv60th<-unlist(cgv60th)
+#CGV70th
+CGV70<-function(x, y){
+  y<-ifelse(x< percent70(x),x,percent70(x))
+  sum(y-min(x))* 0.005625
+}
+cgv70th<-lapply(pixelvalues,CGV70)
+cgv70th<-unlist(cgv70th)
+```
+
+Create Training Data Data Frame
+```{r}
+#Make trainging data table
+Training_data<-data.frame(Height_Max = Height_Max,
+                          Height_90th = Height_90th,
+                          Height_80th = Height_80th,
+                          Height_70th= Height_70th,
+                          Height_60th= Height_60th,
+                          Height_50th=Height_50th,
+                          Height_40th=Height_40th,
+                          Height_30th=Height_30th,
+                          Height_20th=Height_20th,
+                          Height_10th=Height_10th,
+                          Height_Min=Height_Min,
+                          cgv100=cgv100th,
+                          cgv70th= cgv70th,
+                          cgv60th=cgv60th,
+                          cgv50th=cgv50th)
+print(Training_data)
+```
+
+Write Training Data to a csv
+```{r}
+write.csv(Training_data,'Creeks_Head_Covariates2.csv')
+```
+
