@@ -1,0 +1,170 @@
+---
+title: "Model_Comparison"
+author: "Lavran Pagano"
+date: "3/2/2021"
+output: html_document
+---
+###Import Packages
+```{r}
+# Import Packages
+library(randomForest)
+library(e1071)
+library(MASS)
+library(Metrics)
+library(crossval)
+```
+
+
+###Import trainging data
+```{r}
+Mastersheet<- read.csv('/Users/lavran_pagano/Downloads/Lidar_Training_Data/Lidar_Training_Data.csv')
+Mastersheet<-Mastersheet[,c(1, 4:14)]
+LogMastersheet <-log(Mastersheet)
+head(Mastersheet)
+```
+#OLS
+###Finding the best OLS model
+```{r}
+#OLS with all covariates
+fit <- lm(Biomass~.,data=Mastersheet)
+```
+###Stepwise AIC to determine best model
+```{r}
+step <- stepAIC(fit, direction="both")
+step$anova # display results 
+```
+
+
+###OLS Model with the lowest AIC 
+```{r}
+AIC(lm<- lm(Biomass ~ Height_Max + Height_80th + Height_60th + Height_40th + 
+    Height_30th,data=Mastersheet))
+summary(lm)
+```
+
+###10 Fold Cross Validation for OLS
+```{r}
+# set seed
+set.seed(100)
+# create a function for cross valdidated R^2 and RMSE
+  lmfun <- function(train.x, train.y, test.x, test.y)
+  {lm.fit <- lm(train.y ~ ., data=train.x)
+    R2 <- cor(test.x, test.y) ^ 2
+    predbio <- predict(lm.fit, test.x )
+    RMSE <- rmse(predbio,test.y)
+    stats<-data.frame(R2,RMSE)
+    return(stats)
+  }
+# dataframe of lidar predictors from the model with the lowest AIC
+x <- Mastersheet[c( "Height_Max", "Height_80th", "Height_60th", "Height_40th" ,"Height_30th")]
+# vector of biomass
+y <-Mastersheet$Biomass
+# apply the crossval function
+results <- crossval(lmfun,x,y, K=10)
+#print the results
+results$stat
+results$stat.se
+```
+
+#Power Law
+
+###Finding the best Power Law model
+```{r}
+#Power Law all covariates (note any covariates with zeros were not considered)
+fit <- lm(Biomass~Height_Max+Height_40th+Height_50th+Height_60th+Height_70th+Height_80th+Height_90th,data=LogMastersheet)
+summary(fit)
+```
+
+###Stepwise AIC to determine best model
+```{r}
+step <- stepAIC(fit, direction="both")
+step$anova # display results 
+```
+
+###Power law model with the lowest AIC
+```{r}
+AIC(powerlaw<-lm(Biomass ~ Height_Max + Height_50th+Height_60th+Height_80th ,data=LogMastersheet))
+summary(powerlaw)
+```
+
+
+###10 Fold Cross Validation for Powerlaw
+```{r}
+# set seed
+set.seed(100)
+# create a function for cross valdidated R^2 and RMSE
+  plfun <- function(train.x, train.y, test.x, test.y)
+  {pl.fit <- lm(train.y ~ ., data=train.x)
+    R2 <- cor(test.x, test.y) ^ 2
+    predbio <- predict(pl.fit, test.x )
+    predbio<-exp(predbio)
+    RMSE <- rmse(predbio,test.y)
+    stats<-data.frame(R2,RMSE)
+    return(stats)
+  }
+# dataframe of lidar predictors from the model with the lowest AIC
+x <- LogMastersheet[c( "Height_Max", "Height_50th", "Height_60th", "Height_80th")]
+# vector of biomass
+y <-LogMastersheet$Biomass
+# apply the crossval function
+results <- crossval(plfun,x,y, K=10)
+#print the results
+results$stat
+results$stat.se
+```
+
+#Random forest
+###  Random forest variable importance
+```{r}
+RandysForest<-randomForest(Biomass~ ., data= Mastersheet)
+varImpPlot(RandysForest)
+```
+
+###10 Fold Cross Validation for Random Forest
+```{r}
+# set seed
+set.seed(100)
+# create a function for cross valdidated R^2 and RMSE
+  rffun <- function(train.x, train.y, test.x, test.y)
+  {rf.fit <- randomForest(train.y ~ ., data=train.x,type="eps-regression")
+    R2 <- cor(test.x, test.y) ^ 2
+    predbio <- predict(rf.fit, test.x )
+    RMSE <- rmse(predbio,test.y)
+    stats<-data.frame(R2,RMSE)
+    return(stats)
+  }
+# dataframe of all lidar predictors from the model 
+x <- Mastersheet[c( "Height_Max", "Height_Min","Height_90th","Height_10th","Height_20th")]
+# vector of biomass
+y <- Mastersheet$Biomass
+# apply the crossval function
+results <- crossval(rffun,x,y, K=10)
+#print the results
+results$stat
+results$stat.se
+```
+#SVR
+
+###10 Fold Cross Validation for SVR
+```{r}
+# set seed
+set.seed(100)
+# create a function for cross valdidated R^2 and RMSE
+  svrfun <- function(train.x, train.y, test.x, test.y)
+  {svr.fit <- svm(train.y ~ ., data=train.x)
+    R2 <- cor(test.x, test.y) ^ 2
+    predbio <- predict(svr.fit, test.x )
+    RMSE <- rmse(predbio,test.y)
+    stats<-data.frame(R2,RMSE)
+    return(stats)
+  }
+# dataframe of all lidar predictors from the model 
+x <- Mastersheet[c( "Height_Max","Height_Min","Height_10th")]
+# vector of biomass
+y <- Mastersheet$Biomass
+# apply the crossval function
+results <- crossval(svrfun,x,y, K=10)
+#print the results
+results$stat
+results$stat.se
+```
