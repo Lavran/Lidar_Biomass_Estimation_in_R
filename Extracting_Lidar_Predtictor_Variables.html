@@ -184,18 +184,18 @@ summary {
 </div>
 
 
-<p>Import Packages</p>
+<p>Import Packages.</p>
 <pre class="r"><code>library(lidR)</code></pre>
 <pre><code>## Loading required package: raster</code></pre>
 <pre><code>## Loading required package: sp</code></pre>
 <pre class="r"><code>library(raster)
 library(purrr)</code></pre>
-<p>Import Polygon Plot Shapefile</p>
+<p>Import Polygon Plot Shapefile.</p>
 <pre class="r"><code>centShape &lt;-shapefile(&quot;/Users/lavran_pagano/Downloads/CreeksheadPlotPolygon2.shp&quot;)</code></pre>
 <pre><code>## Warning in OGRSpatialRef(dsn, layer, morphFromESRI = morphFromESRI, dumpSRS =
 ## dumpSRS, : Discarded datum D_Unknown_based_on_GRS80_ellipsoid in CRS definition:
 ## +proj=utm +zone=17 +ellps=GRS80 +units=m +no_defs</code></pre>
-<p>Import list of canopy height models and mosaic them into one large raster covering the study area</p>
+<p>Import list of canopy height models and mosaic them into one large raster covering the study area.</p>
 <pre class="r"><code>#path to chm folder
 mypath&lt;- '/Users/lavran_pagano/Downloads/Lidar_Training_Data/Creeks_Head/Creeks_HeadCHMs'
 #make a list of chm files
@@ -228,7 +228,7 @@ map(raster)</code></pre>
 mosaic&lt;- do.call(merge,chmlist)</code></pre>
 <pre><code>## Warning in showSRID(uprojargs, format = &quot;PROJ&quot;, multiline = &quot;NO&quot;): Discarded datum Unknown based on GRS80 ellipsoid in CRS definition,
 ##  but +towgs84= values preserved</code></pre>
-<p>Make sure both the raster and the shapefile are in the same projection. In our case we will be working in Michiagn State Plane</p>
+<p>Make sure both the raster and the shapefile are in the same projection. In our case we will be working in Michiagn State Plane.</p>
 <pre class="r"><code>#define projection (state plane)
 statePlane&lt;-&quot;+proj=lcc +lat_0=41.5 +lon_0=-84.3666666666667 +lat_1=43.6666666666667
 +lat_2=42.1 +x_0=3999999.999984 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=ft +no_defs&quot;
@@ -240,15 +240,14 @@ crs(mosaic) &lt;- statePlane</code></pre>
 centShape&lt;-spTransform(centShape,statePlane)</code></pre>
 <pre><code>## Warning in showSRID(uprojargs, format = &quot;PROJ&quot;, multiline = &quot;NO&quot;): Discarded datum Unknown based on GRS80 ellipsoid in CRS definition,
 ##  but +towgs84= values preserved</code></pre>
-<p>Create list of pixel values</p>
+<p>Create list of pixel values.</p>
 <pre class="r"><code>#create list of pixel values
 pixelvalues&lt;-raster::extract(mosaic,centShape,method= 'simple')
 #Omit NAs for simplicity
 pixelvalues &lt;-lapply(pixelvalues,na.omit)</code></pre>
 <div id="create-a-dataframe-of-predictor-varibles" class="section level3">
 <h3>Create a dataframe of predictor varibles</h3>
-<p>Height covariets</p>
-<pre class="r"><code>#max hight
+<pre class="r"><code>#max height
 Height_Max&lt;-lapply(pixelvalues,max)
 Height_Max&lt;-unlist(Height_Max)
 #min height
@@ -308,35 +307,7 @@ percent90&lt;-function(x){
 }
 Height_90th&lt;-lapply(pixelvalues,percent90)
 Height_90th&lt;-unlist(Height_90th)</code></pre>
-<p>Crown gemoetric voulmne(cgv) cgv is calculated from the sumation of all pixel values in a plot with the minium height value subtracted from said pixel values. That number is then multiplyed by the width and length of a given pixel cell to convert to cubic meters.Our spatial resolution is 0.25ft which is equalivlent to 0.075m, Therfore given our spatail resolution cgv is calculated by sum(y-min(y)) 0.075m X 0.075m.</p>
-<pre class="r"><code>#CGV FUll
-CGV100&lt;-function(y){
-  sum(y-min(y))* 0.005625 #0.075m X 0.075m
-}
-cgv100th&lt;-lapply(pixelvalues,CGV100)
-cgv100th&lt;-unlist(cgv100th)
-#CGV50th
-CGV50&lt;-function(x, y){
-  y&lt;-ifelse(x&lt; percent50(x),x,percent50(x))
-  sum(y-min(x))* 0.005625
-}
-cgv50th&lt;-lapply(pixelvalues,CGV50)
-cgv50th&lt;-unlist(cgv50th)
-#CGV60th
-CGV60&lt;-function(x, y){
-  y&lt;-ifelse(x&lt; percent60(x),x,percent60(x))
-  sum(y-min(x))* 0.005625
-}
-cgv60th&lt;-lapply(pixelvalues,CGV60)
-cgv60th&lt;-unlist(cgv60th)
-#CGV70th
-CGV70&lt;-function(x, y){
-  y&lt;-ifelse(x&lt; percent70(x),x,percent70(x))
-  sum(y-min(x))* 0.005625
-}
-cgv70th&lt;-lapply(pixelvalues,CGV70)
-cgv70th&lt;-unlist(cgv70th)</code></pre>
-<p>Create Training Data Data Frame</p>
+<p>Create the Training Data Data Frame</p>
 <pre class="r"><code>#Make trainging data table
 Training_data&lt;-data.frame(Height_Max = Height_Max,
                           Height_90th = Height_90th,
@@ -348,11 +319,8 @@ Training_data&lt;-data.frame(Height_Max = Height_Max,
                           Height_30th=Height_30th,
                           Height_20th=Height_20th,
                           Height_10th=Height_10th,
-                          Height_Min=Height_Min,
-                          cgv100=cgv100th,
-                          cgv70th= cgv70th,
-                          cgv60th=cgv60th,
-                          cgv50th=cgv50th)
+                          Height_Min=Height_Min
+                         )
 print(Training_data)</code></pre>
 <pre><code>##    Height_Max Height_90th Height_80th Height_70th Height_60th Height_50th
 ## 1    27.80031    23.56222    21.79986    20.18584    18.97082    17.73886
@@ -367,34 +335,21 @@ print(Training_data)</code></pre>
 ## 10   23.35016    22.23329    21.31740    20.47105    19.56552    18.49903
 ## 11   26.65982    24.65948    23.47535    22.45945    21.36185    20.26412
 ## 12   22.49252    15.62290    14.28309    12.88420    11.68808    10.61186
-##    Height_40th Height_30th Height_20th Height_10th Height_Min    cgv100
-## 1    16.466005    15.05236   13.781883   12.056976  6.8275189 1056.3106
-## 2    15.659693    13.57484   11.807636    9.767604  4.2919598 1168.2781
-## 3    15.180408    12.09247    6.960082    2.713511  0.1695230 1472.8248
-## 4    23.145861    21.41590   19.601473   17.078501  9.1489496 1354.8128
-## 5    17.021688    16.01139   15.022661   13.334068  6.4415989 1137.6225
-## 6    21.064750    19.56804   18.127714   16.197815 12.1149921  903.2357
-## 7    15.798422    14.32973   12.641495   10.280078  5.2876234 1156.2043
-## 8    17.680515    16.34399   14.238638   10.138782  0.8337740 1782.2192
-## 9    13.318019    11.98930   10.634428    8.677357  3.8739929 1122.9611
-## 10   17.332066    16.04747   14.782765   13.229115  1.4208474 1585.5718
-## 11   19.005355    17.48892   14.915391   10.766751  4.8475218 1379.1689
-## 12    9.340387     7.94660    5.890117    3.224434  0.5054377  934.4627
-##      cgv70th   cgv60th   cgv50th
-## 1   975.7794  934.6076  880.8803
-## 2  1127.1454 1094.0396 1037.3681
-## 3  1401.2103 1352.4749 1285.9462
-## 4  1322.9187 1302.4253 1259.7809
-## 5  1067.4380 1023.1864  973.8719
-## 6   876.2740  850.1863  807.8999
-## 7  1095.2993 1036.6017  961.8761
-## 8  1732.0441 1647.8233 1539.7400
-## 9  1032.2209  969.9463  876.9298
-## 10 1546.7045 1516.0229 1469.5224
-## 11 1329.9808 1292.6802 1244.8591
-## 12  862.7703  822.8267  775.5243</code></pre>
+##    Height_40th Height_30th Height_20th Height_10th Height_Min
+## 1    16.466005    15.05236   13.781883   12.056976  6.8275189
+## 2    15.659693    13.57484   11.807636    9.767604  4.2919598
+## 3    15.180408    12.09247    6.960082    2.713511  0.1695230
+## 4    23.145861    21.41590   19.601473   17.078501  9.1489496
+## 5    17.021688    16.01139   15.022661   13.334068  6.4415989
+## 6    21.064750    19.56804   18.127714   16.197815 12.1149921
+## 7    15.798422    14.32973   12.641495   10.280078  5.2876234
+## 8    17.680515    16.34399   14.238638   10.138782  0.8337740
+## 9    13.318019    11.98930   10.634428    8.677357  3.8739929
+## 10   17.332066    16.04747   14.782765   13.229115  1.4208474
+## 11   19.005355    17.48892   14.915391   10.766751  4.8475218
+## 12    9.340387     7.94660    5.890117    3.224434  0.5054377</code></pre>
 <p>Write Training Data to a csv</p>
-<pre class="r"><code>write.csv(Training_data,'Creeks_Head_Covariates2.csv')</code></pre>
+<pre class="r"><code>write.csv(Training_data,'Creeks_Head_predictors.csv')</code></pre>
 </div>
 
 

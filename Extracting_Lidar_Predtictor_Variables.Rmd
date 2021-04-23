@@ -4,7 +4,7 @@ author: "Lavran Pagano"
 date: "1/30/2021"
 output: html_document
 ---
-Import Packages
+Import Packages.
 
 ```{r}
 library(lidR)
@@ -12,13 +12,13 @@ library(raster)
 library(purrr)
 ```
 
-Import Polygon Plot Shapefile
+Import Polygon Plot Shapefile.
 
 ```{r}
 centShape <-shapefile("/Users/lavran_pagano/Downloads/CreeksheadPlotPolygon2.shp")
 ```
 
-Import list of canopy height models and mosaic them into one large raster covering the study area
+Import list of canopy height models and mosaic them into one large raster covering the study area.
 
 ```{r}
 #path to chm folder
@@ -30,7 +30,7 @@ map(raster)
 mosaic<- do.call(merge,chmlist)
 ```
 
-Make sure both the raster and the shapefile are in the same projection. In our case we will be working in Michiagn State Plane
+Make sure both the raster and the shapefile are in the same projection. In our case we will be working in Michiagn State Plane.
 
 ```{r}
 #define projection (state plane)
@@ -42,7 +42,7 @@ crs(mosaic) <- statePlane
 centShape<-spTransform(centShape,statePlane)
 ```
 
-Create list of pixel values
+Create list of pixel values.
 
 ```{r}
 #create list of pixel values
@@ -53,9 +53,8 @@ pixelvalues <-lapply(pixelvalues,na.omit)
 
 ###Create a dataframe of predictor varibles
 
-Height covariets
 ```{r}
-#max hight
+#max height
 Height_Max<-lapply(pixelvalues,max)
 Height_Max<-unlist(Height_Max)
 #min height
@@ -117,40 +116,7 @@ Height_90th<-lapply(pixelvalues,percent90)
 Height_90th<-unlist(Height_90th)
 ```
 
-Crown gemoetric voulmne(cgv)
-cgv is calculated from the sumation of all pixel values in a plot with the minium height value subtracted from said pixel values. That number is then multiplyed by the width and length of a given pixel cell to convert to cubic meters.Our spatial resolution is 0.25ft which is equalivlent to 0.075m, Therfore given our spatail resolution cgv is calculated by sum(y-min(y)) 0.075m X 0.075m.
-
-```{r}
-#CGV FUll
-CGV100<-function(y){
-  sum(y-min(y))* 0.005625 #0.075m X 0.075m
-}
-cgv100th<-lapply(pixelvalues,CGV100)
-cgv100th<-unlist(cgv100th)
-#CGV50th
-CGV50<-function(x, y){
-  y<-ifelse(x< percent50(x),x,percent50(x))
-  sum(y-min(x))* 0.005625
-}
-cgv50th<-lapply(pixelvalues,CGV50)
-cgv50th<-unlist(cgv50th)
-#CGV60th
-CGV60<-function(x, y){
-  y<-ifelse(x< percent60(x),x,percent60(x))
-  sum(y-min(x))* 0.005625
-}
-cgv60th<-lapply(pixelvalues,CGV60)
-cgv60th<-unlist(cgv60th)
-#CGV70th
-CGV70<-function(x, y){
-  y<-ifelse(x< percent70(x),x,percent70(x))
-  sum(y-min(x))* 0.005625
-}
-cgv70th<-lapply(pixelvalues,CGV70)
-cgv70th<-unlist(cgv70th)
-```
-
-Create Training Data Data Frame
+Create the Training Data Data Frame
 ```{r}
 #Make trainging data table
 Training_data<-data.frame(Height_Max = Height_Max,
@@ -163,16 +129,13 @@ Training_data<-data.frame(Height_Max = Height_Max,
                           Height_30th=Height_30th,
                           Height_20th=Height_20th,
                           Height_10th=Height_10th,
-                          Height_Min=Height_Min,
-                          cgv100=cgv100th,
-                          cgv70th= cgv70th,
-                          cgv60th=cgv60th,
-                          cgv50th=cgv50th)
+                          Height_Min=Height_Min
+                         )
 print(Training_data)
 ```
 
 Write Training Data to a csv
 ```{r}
-write.csv(Training_data,'Creeks_Head_Covariates2.csv')
+write.csv(Training_data,'Creeks_Head_predictors.csv')
 ```
 
