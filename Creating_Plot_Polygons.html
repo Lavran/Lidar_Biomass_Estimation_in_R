@@ -198,7 +198,7 @@ summary {
 ## Linking to sp version:1.4-2
 ## To mute warnings of possible GDAL/OSR exportToProj4() degradation,
 ## use options(&quot;rgdal_show_exportToProj4_warnings&quot;=&quot;none&quot;) before loading rgdal.</code></pre>
-<p>Import shapefile of plot south west corner</p>
+<p>Import shapefile of plot SouthWest corner</p>
 <pre class="r"><code>SWC&lt;-shapefile('/Users/lavran_pagano/Downloads/Creekshead_Plots (1)/Creekshead_Plots.shp')</code></pre>
 <pre><code>## Warning in OGRSpatialRef(dsn, layer, morphFromESRI = morphFromESRI, dumpSRS
 ## = dumpSRS, : Discarded ellps WGS 84 in CRS definition: +proj=merc +a=6378137
@@ -215,12 +215,12 @@ summary {
 <p>Get Lat-Long Cordinates from Plots</p>
 <pre class="r"><code>long_lat&lt;-data.frame(Long = SWC$ESRIGNSS_1 ,Lat = SWC$ESRIGNSS_L )#get lat and long cordinates
 long_lat&lt;-na.omit(long_lat) # remove NAs</code></pre>
-<p>Create a function to covert to UTM projection</p>
+<p>Create a function to convert to UTM 17N</p>
 <pre class="r"><code># convert to UTM FUnction
 LongLatToUTM&lt;-function(x,y,zone){
   xy &lt;- data.frame(ID = 1:length(x), X = x, Y = y)
   coordinates(xy) &lt;- c(&quot;X&quot;, &quot;Y&quot;)
-  proj4string(xy) &lt;- CRS(&quot;+proj=longlat +datum=WGS84&quot;)  ## for example
+  proj4string(xy) &lt;- CRS(&quot;+proj=longlat +datum=WGS84&quot;)  
   res &lt;- spTransform(xy, CRS(paste(&quot;+proj=utm +zone=&quot;,zone,&quot; ellps=WGS84&quot;,sep='')))
   return(as.data.frame(res))
 }</code></pre>
@@ -228,11 +228,11 @@ LongLatToUTM&lt;-function(x,y,zone){
 <pre class="r"><code>utm&lt;-LongLatToUTM(long_lat$Long,long_lat$Lat,17)</code></pre>
 <pre><code>## Warning in showSRID(uprojargs, format = &quot;PROJ&quot;, multiline = &quot;NO&quot;): Discarded
 ## datum Unknown based on WGS84 ellipsoid in CRS definition</code></pre>
-<p>Create a dataframe file with plot the UTM plot center cordinates</p>
-<pre class="r"><code>utmEasting&lt;-utm$X +5
-utmNorthing&lt;-utm$Y +5
-utm_center &lt;-data.frame(ID=utm$ID, Easting=utmEasting, Northing = utmNorthing)</code></pre>
-<p>Renane if not already in the appropriate format</p>
+<p>Create a dataframe with the UTM plot center cordinates</p>
+<pre class="r"><code>utmEasting&lt;-utm$X +5 #add 5 to the easting
+utmNorthing&lt;-utm$Y +5 #add five to the northing
+utm_center &lt;-data.frame(ID=utm$ID, Easting=utmEasting, Northing = utmNorthing)#create the dataframe</code></pre>
+<p>Rename if not already in the appropriate format</p>
 <pre class="r"><code>centroids &lt;- utm_center
 colnames(centroids)[1]&lt;- &quot;plot&quot;
 colnames(centroids)[2]&lt;-&quot;Easting&quot;
@@ -244,18 +244,33 @@ xPlus &lt;- centroids$Easting+radius
 yMinus &lt;- centroids$Northing-radius
 xMinus &lt;- centroids$Easting-radius</code></pre>
 <p>Calculate polygon coordinates for each plot centroid</p>
-<pre class="r"><code>square=cbind(xMinus,yPlus,  # NW corner
-             xPlus, yPlus,  # NE corner
-             xPlus,yMinus,  # SE corner
-             xMinus,yMinus, # SW corner
-             xMinus,yPlus)  # NW corner again - close ploygon</code></pre>
+<pre class="r"><code>square=cbind(xMinus,yPlus,  #Northwest corner
+             xPlus, yPlus,  #Northeast corner
+             xPlus,yMinus,  #Southeast corner
+             xMinus,yMinus, #Southwest corner
+             xMinus,yPlus)  #Northwest corner again - close ploygon
+head(square)</code></pre>
+<pre><code>##        xMinus   yPlus    xPlus   yPlus    xPlus  yMinus   xMinus  yMinus
+## [1,] 285352.1 4695440 285362.1 4695440 285362.1 4695430 285352.1 4695430
+## [2,] 285353.6 4695427 285363.6 4695427 285363.6 4695417 285353.6 4695417
+## [3,] 285310.9 4695342 285320.9 4695342 285320.9 4695332 285310.9 4695332
+## [4,] 285255.2 4695366 285265.2 4695366 285265.2 4695356 285255.2 4695356
+## [5,] 285164.1 4695423 285174.1 4695423 285174.1 4695413 285164.1 4695413
+## [6,] 285142.1 4695429 285152.1 4695429 285152.1 4695419 285142.1 4695419
+##        xMinus   yPlus
+## [1,] 285352.1 4695440
+## [2,] 285353.6 4695427
+## [3,] 285310.9 4695342
+## [4,] 285255.2 4695366
+## [5,] 285164.1 4695423
+## [6,] 285142.1 4695429</code></pre>
 <p>Extract the plot ID information</p>
 <pre class="r"><code># Extract the plot ID information
 ID=centroids$plot</code></pre>
-<p>Create spatial polygon dataframe</p>
-<pre class="r"><code>polys &lt;- SpatialPolygons(mapply(function(poly, id) 
+<p>Create spatial polygons from coordinates</p>
+<pre class="r"><code>polys &lt;- SpatialPolygons(mapply(function(poly, id) #The mapply() function is a multivariate apply of sorts.The polygon argument refers to the 
 {
-  xy &lt;- matrix(poly, ncol=2, byrow=TRUE)
+  xy &lt;- matrix(poly, ncol=2, byrow=TRUE)#create a matrix with x and y cordinates
   Polygons(list(Polygon(xy)), ID=id)
 }, 
 split(square, row(square)), ID),

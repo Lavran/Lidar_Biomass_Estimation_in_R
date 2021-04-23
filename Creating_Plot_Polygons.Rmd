@@ -10,12 +10,10 @@ library(raster)
 library(rgdal)
 ```
 
-Import shapefile of plot south west corner
+Import shapefile of plot SouthWest corner
 ```{r}
 SWC<-shapefile('/Users/lavran_pagano/Downloads/Creekshead_Plots (1)/Creekshead_Plots.shp')
 ```
-
-
 
 Get Lat-Long Cordinates from Plots
 ```{r}
@@ -23,13 +21,13 @@ long_lat<-data.frame(Long = SWC$ESRIGNSS_1 ,Lat = SWC$ESRIGNSS_L )#get lat and l
 long_lat<-na.omit(long_lat) # remove NAs
 ```
 
-Create a function to covert to UTM projection
+Create a function to convert to UTM 17N
 ```{r}
 # convert to UTM FUnction
 LongLatToUTM<-function(x,y,zone){
   xy <- data.frame(ID = 1:length(x), X = x, Y = y)
   coordinates(xy) <- c("X", "Y")
-  proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")  ## for example
+  proj4string(xy) <- CRS("+proj=longlat +datum=WGS84")  
   res <- spTransform(xy, CRS(paste("+proj=utm +zone=",zone," ellps=WGS84",sep='')))
   return(as.data.frame(res))
 }
@@ -39,14 +37,14 @@ Apply UTM Function
 ```{r}
 utm<-LongLatToUTM(long_lat$Long,long_lat$Lat,17)
 ```
-Create a dataframe file with plot the UTM plot center cordinates
+Create a dataframe with the UTM plot center cordinates
 ```{r}
-utmEasting<-utm$X +5
-utmNorthing<-utm$Y +5
-utm_center <-data.frame(ID=utm$ID, Easting=utmEasting, Northing = utmNorthing)
+utmEasting<-utm$X +5 #add 5 to the easting
+utmNorthing<-utm$Y +5 #add five to the northing
+utm_center <-data.frame(ID=utm$ID, Easting=utmEasting, Northing = utmNorthing)#create the dataframe
 ```
 
-Renane if not already in the appropriate format
+Rename if not already in the appropriate format
 ```{r}
 centroids <- utm_center
 colnames(centroids)[1]<- "plot"
@@ -65,11 +63,12 @@ xMinus <- centroids$Easting-radius
 
 Calculate polygon coordinates for each plot centroid
 ```{r}
-square=cbind(xMinus,yPlus,  # NW corner
-             xPlus, yPlus,  # NE corner
-             xPlus,yMinus,  # SE corner
-             xMinus,yMinus, # SW corner
-             xMinus,yPlus)  # NW corner again - close ploygon
+square=cbind(xMinus,yPlus,  #Northwest corner
+             xPlus, yPlus,  #Northeast corner
+             xPlus,yMinus,  #Southeast corner
+             xMinus,yMinus, #Southwest corner
+             xMinus,yPlus)  #Northwest corner again - close ploygon
+head(square)
 ```
 
 Extract the plot ID information
@@ -78,11 +77,11 @@ Extract the plot ID information
 ID=centroids$plot
 ```
 
-Create spatial polygon dataframe 
+Create spatial polygons from coordinates
 ```{r}
-polys <- SpatialPolygons(mapply(function(poly, id) 
+polys <- SpatialPolygons(mapply(function(poly, id) #The mapply() function is a multivariate apply of sorts.The polygon argument refers to the 
 {
-  xy <- matrix(poly, ncol=2, byrow=TRUE)
+  xy <- matrix(poly, ncol=2, byrow=TRUE)#create a matrix with x and y cordinates
   Polygons(list(Polygon(xy)), ID=id)
 }, 
 split(square, row(square)), ID),
